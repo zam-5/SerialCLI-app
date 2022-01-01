@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{stdin, stdout, Write};
 // use std::io::BufRead;
 use std::process;
 use std::time::Duration;
@@ -10,9 +10,10 @@ fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
 
     loop {
         let mut port_str = String::new();
-        println!("Select a port: ");
+        print!("Select a port: ");
+        let _ = stdout().flush();
 
-        match io::stdin().read_line(&mut port_str) {
+        match stdin().read_line(&mut port_str) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error reading stdin: {}", e);
@@ -59,22 +60,25 @@ fn main() {
             process::exit(1);
         }
     };
+    loop {
+        let mut com = String::new();
+        print!("> ");
+        let _ = stdout().flush();
 
-    let mut com = String::new();
-    println!("Enter command:");
-    match io::stdin().read_line(&mut com) {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("Error reading stdin: {}", e);
-            process::exit(1);
-        }
-    };
+        match stdin().read_line(&mut com) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error reading stdin: {}", e);
+                process::exit(1);
+            }
+        };
 
-    match port.write(&com.as_bytes()) {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("Error writing: {}", e);
-            process::exit(1);
-        }
-    };
+        match port.write(&com.as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error writing: {}", e);
+                process::exit(1);
+            }
+        };
+    }
 }
