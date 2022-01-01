@@ -1,21 +1,19 @@
+use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
-use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
     output_buf: String,
-    port: Box<dyn serialport::SerialPort>,
+    communicator: Communicator,
+    // port: Box<dyn serialport::SerialPort>,
 }
 
 impl Shell {
-    pub fn init() -> Result<Self, &'static str> {
+    pub fn init() -> Result<Self, Box<dyn std::error::Error>> {
         let ports = match serialport::available_ports() {
             Ok(ports) => ports,
-            Err(e) => {
-                eprintln!("Error reading ports: {}", e);
-                process::exit(1);
-            }
+            Err(e) => return Err(format!("Error reading ports: {}", e).into()),
         };
 
         if ports.is_empty() {
@@ -24,21 +22,17 @@ impl Shell {
 
         let port_name = Shell::user_select_port(ports);
         println!("Selected port: {}", &port_name);
-
-        let port = match serialport::new(port_name, 9600)
-            .timeout(Duration::from_millis(10))
-            .open()
-        {
-            Ok(port) => port,
+        let communicator = match Communicator::new(port_name, 9600) {
+            Ok(c) => c,
             Err(e) => {
-                eprintln!("Could not connect: {}", e);
-                process::exit(1);
+                return Err(format!("Error connecting: {}", e).into());
             }
         };
+
         Ok(Self {
             input_buf: String::new(),
             output_buf: String::new(),
-            port,
+            communicator,
         })
     }
     //Should propably become a command
@@ -79,23 +73,27 @@ impl Shell {
     }
 
     pub fn run_loop(&mut self) {
+        let Self {
+            input_buf,
+            output_buf,
+            communicator,
+        } = self;
+
         loop {
             print!(">> ");
             let _ = stdout().flush();
 
-            match stdin().read_line(&mut self.input_buf) {
+            match stdin().read_line(input_buf) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error reading stdin: {}", e);
                     process::exit(1);
                 }
             };
-
-            match self.port.write(&self.input_buf.as_bytes()) {
+            match communicator.write(output_buf.as_bytes()) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error writing: {}", e);
-                    process::exit(1);
                 }
             };
         }

@@ -1,4 +1,5 @@
 mod shell;
+mod communicator;
 
 use shell::Shell;
 use std::process;
