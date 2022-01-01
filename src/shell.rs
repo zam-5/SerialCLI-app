@@ -1,6 +1,7 @@
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
+use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
@@ -80,6 +81,18 @@ impl Shell {
         } = self;
 
         loop {
+            *output_buf = match communicator.get_output() {
+                Ok(str) => str,
+                Err(e) => {
+                    eprintln!("Error getting output: {}", e);
+                    String::new()
+                }
+            };
+
+            if !output_buf.is_empty() {
+                println!("{}", output_buf);
+                output_buf.clear();
+            }
             print!(">> ");
             let _ = stdout().flush();
 
@@ -90,12 +103,13 @@ impl Shell {
                     process::exit(1);
                 }
             };
-            match communicator.write(output_buf.as_bytes()) {
+            match communicator.write(input_buf.as_bytes()) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error writing: {}", e);
                 }
             };
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }

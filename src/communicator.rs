@@ -23,4 +23,22 @@ impl Communicator {
             Err(e) => Err(e.into()),
         }
     }
+
+    pub fn get_output(&mut self) -> Result<String, Box<dyn std::error::Error>> {
+        let mut buf = [0 as u8; 1000];
+        let bytes_read = match self.port.read(&mut buf) {
+            Ok(br) => br,
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => 0,
+            Err(e) => return Err(e.into()),
+        };
+
+        if bytes_read == 0 {
+            return Ok(String::new())
+        }
+
+        match String::from_utf8(buf[..bytes_read].to_vec()) {
+            Ok(str) => Ok(str),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
