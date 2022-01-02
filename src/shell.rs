@@ -19,7 +19,7 @@ impl Shell {
         };
 
         if ports.is_empty() {
-            return Err("No serial devives found".into());
+            return Err("No serial devices found".into());
         }
 
         let port_name = Shell::user_select_port(ports);
