@@ -1,3 +1,4 @@
+use crate::command::Command;
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
@@ -7,7 +8,7 @@ pub struct Shell {
     input_buf: String,
     output_buf: String,
     communicator: Communicator,
-    // port: Box<dyn serialport::SerialPort>,
+    com_vec: Vec<Command>,
 }
 
 impl Shell {
@@ -29,13 +30,90 @@ impl Shell {
             }
         };
 
+        let mut com_vec: Vec<Command> = Vec::new();
+        com_vec.push(Command::new("exit", Shell::exit_shell));
+
         Ok(Self {
             input_buf: String::new(),
             output_buf: String::new(),
             communicator,
+            com_vec,
         })
     }
     //Should propably become a command
+
+    fn welcome_msg(&self) {
+        println!(
+            "\nSerialCLI v{}\nConnected to: {}",
+            env!("CARGO_PKG_VERSION"),
+            self.communicator.get_name()
+        );
+    }
+
+    fn parse(line: &String, com_vec: &Vec<Command>) {
+        let line_vec: Vec<&str> = line.split(" ").collect();
+        let mut argv: Vec<String> = Vec::new();
+        if line_vec.len() > 1 {
+            line_vec[1..]
+                .iter()
+                .for_each(|str| argv.push(String::from(str.clone())))
+        }
+        for command in com_vec.iter() {
+            if line_vec[0].trim() == command.name {
+                command.exec(&argv);
+            }
+        }
+    }
+
+    pub fn run_loop(&mut self) {
+        self.welcome_msg();
+
+        let Self {
+            input_buf,
+            output_buf,
+            communicator,
+            com_vec,
+        } = self;
+
+        loop {
+            if communicator.msg_available() {
+                *output_buf = match communicator.get_output() {
+                    Ok(str) => str,
+                    Err(e) => {
+                        eprintln!("Error getting output: {}", e);
+                        String::new()
+                    }
+                };
+            }
+
+            if !output_buf.is_empty() {
+                println!("{}", output_buf.trim());
+                output_buf.clear();
+            }
+            print!(">> ");
+            let _ = stdout().flush();
+
+            match stdin().read_line(input_buf) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Error reading stdin: {}", e);
+                    process::exit(1);
+                }
+            };
+            Shell::parse(input_buf, com_vec);
+            // match communicator.write(input_buf.as_bytes()) {
+            //     Ok(_) => input_buf.clear(),
+            //     Err(e) => {
+            //         eprintln!("Error writing: {}", e);
+            //     }
+            // };
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+}
+
+//Commands
+impl Shell {
     fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
         println!("Serial Ports found:");
         for (i, p) in port_list.iter().enumerate() {
@@ -73,54 +151,8 @@ impl Shell {
         }
     }
 
-    fn welcome_msg(&self) {
-        println!(
-            "\nSerialCLI v{}\nConnected to: {}",
-            env!("CARGO_PKG_VERSION"),
-            self.communicator.get_name()
-        );
-        
-    }
-
-    pub fn run_loop(&mut self) {
-        self.welcome_msg();
-
-        let Self {
-            input_buf,
-            output_buf,
-            communicator,
-        } = self;
-
-        loop {
-            *output_buf = match communicator.get_output() {
-                Ok(str) => str,
-                Err(e) => {
-                    eprintln!("Error getting output: {}", e);
-                    String::new()
-                }
-            };
-
-            if !output_buf.is_empty() {
-                println!("{}", output_buf.trim());
-                output_buf.clear();
-            }
-            print!(">> ");
-            let _ = stdout().flush();
-
-            match stdin().read_line(input_buf) {
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("Error reading stdin: {}", e);
-                    process::exit(1);
-                }
-            };
-            match communicator.write(input_buf.as_bytes()) {
-                Ok(_) => input_buf.clear(),
-                Err(e) => {
-                    eprintln!("Error writing: {}", e);
-                }
-            };
-            std::thread::sleep(Duration::from_millis(50));
-        }
+    fn exit_shell(_argv: &Vec<String>) {
+        println!("Exiting...");
+        process::exit(0);
     }
 }

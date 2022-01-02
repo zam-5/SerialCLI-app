@@ -17,6 +17,13 @@ impl Communicator {
         Ok(Self { port })
     }
 
+    pub fn msg_available(&self) -> bool {
+        if self.port.bytes_to_read().unwrap() != 0 {
+            return true;
+        }
+        false
+    }
+
     pub fn write(&mut self, buffer: &[u8]) -> Result<usize, Box<dyn Error>> {
         match self.port.write(buffer) {
             Ok(n) => Ok(n),
