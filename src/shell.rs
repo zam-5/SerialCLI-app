@@ -2,7 +2,7 @@ use crate::command::Command;
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct Shell {
     input_buf: String,
@@ -32,6 +32,7 @@ impl Shell {
 
         let mut com_vec: Vec<Command> = Vec::new();
         com_vec.push(Command::new("exit", Shell::exit_shell));
+        com_vec.push(Command::new("write-digital", Shell::write_digital));
 
         Ok(Self {
             input_buf: String::new(),
@@ -40,7 +41,6 @@ impl Shell {
             com_vec,
         })
     }
-    //Should propably become a command
 
     fn welcome_msg(&self) {
         println!(
@@ -48,21 +48,6 @@ impl Shell {
             env!("CARGO_PKG_VERSION"),
             self.communicator.get_name()
         );
-    }
-
-    fn parse(line: &String, com_vec: &Vec<Command>) {
-        let line_vec: Vec<&str> = line.split(" ").collect();
-        let mut argv: Vec<String> = Vec::new();
-        if line_vec.len() > 1 {
-            line_vec[1..]
-                .iter()
-                .for_each(|str| argv.push(String::from(str.clone())))
-        }
-        for command in com_vec.iter() {
-            if line_vec[0].trim() == command.name {
-                command.exec(&argv);
-            }
-        }
     }
 
     pub fn run_loop(&mut self) {
@@ -100,13 +85,8 @@ impl Shell {
                     process::exit(1);
                 }
             };
-            Shell::parse(input_buf, com_vec);
-            // match communicator.write(input_buf.as_bytes()) {
-            //     Ok(_) => input_buf.clear(),
-            //     Err(e) => {
-            //         eprintln!("Error writing: {}", e);
-            //     }
-            // };
+            Shell::parse(input_buf, com_vec, communicator);
+            input_buf.clear();
             std::thread::sleep(Duration::from_millis(50));
         }
     }
@@ -114,6 +94,23 @@ impl Shell {
 
 //Commands
 impl Shell {
+    fn parse(line: &String, com_vec: &Vec<Command>, communicator: &mut Communicator) {
+        // let now = Instant::now();
+        let line_vec: Vec<&str> = line.split(" ").collect();
+        let mut argv: Vec<String> = Vec::new();
+        if line_vec.len() > 1 {
+            line_vec[1..]
+                .iter()
+                .for_each(|str| argv.push(String::from(str.clone())))
+        }
+        for command in com_vec.iter() {
+            if line_vec[0].trim() == command.name {
+                // println!("Time to parse: {}", now.elapsed().as_micros());
+                command.exec(&argv, communicator);
+            }
+        }
+    }
+
     fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
         println!("Serial Ports found:");
         for (i, p) in port_list.iter().enumerate() {
@@ -151,8 +148,27 @@ impl Shell {
         }
     }
 
-    fn exit_shell(_argv: &Vec<String>) {
+    fn exit_shell(_argv: &Vec<String>, _communicator: &mut Communicator) {
         println!("Exiting...");
         process::exit(0);
+    }
+
+    fn write_digital(argv: &Vec<String>, communicator: &mut Communicator) {
+        // let now = Instant::now();
+        let argstr: String = argv
+            .iter()
+            .map(|str| format!("{} ", str).to_string())
+            .collect();
+        // println!("Time to parse args: {}", now.elapsed().as_micros());
+        // let now2 = Instant::now();
+        match communicator.write(format!("write-digital {}", argstr.trim()).as_bytes()) {
+            Ok(_) => {
+                // println!("Time to write args: {}", now2.elapsed().as_micros());
+                ()
+            }
+            Err(e) => {
+                eprintln!("Write command error: {}", e);
+            }
+        };
     }
 }
