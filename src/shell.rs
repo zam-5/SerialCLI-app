@@ -188,7 +188,7 @@ impl Shell {
             .iter()
             .map(|str| format!("{} ", str).to_string())
             .collect();
-        match communicator.write(format!("0 {}", argstr.trim()).as_bytes()) {
+        match communicator.write(format!("2 {}", argstr.trim()).as_bytes()) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
