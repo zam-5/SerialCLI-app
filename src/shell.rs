@@ -2,7 +2,7 @@ use crate::command::Command;
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
-use std::time::Duration;
+// use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
@@ -164,7 +164,7 @@ impl Shell {
             .collect();
         // println!("Time to parse args: {}", now.elapsed().as_micros());
         // let now2 = Instant::now();
-        match communicator.write(format!("write-digital {}", argstr.trim()).as_bytes()) {
+        match communicator.write(format!("3 {}", argstr.trim()).as_bytes()) {
             Ok(_) => {
                 // println!("Time to write args: {}", now2.elapsed().as_micros());
                 ()
@@ -180,7 +180,7 @@ impl Shell {
             .iter()
             .map(|str| format!("{} ", str).to_string())
             .collect();
-        match communicator.write(format!("write-analog {}", argstr.trim()).as_bytes()) {
+        match communicator.write(format!("0 {}", argstr.trim()).as_bytes()) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
@@ -193,7 +193,7 @@ impl Shell {
             .iter()
             .map(|str| format!("{} ", str).to_string())
             .collect();
-        match communicator.write(format!("read-digital {}", argstr.trim()).as_bytes()) {
+        match communicator.write(format!("1 {}", argstr.trim()).as_bytes()) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
@@ -207,7 +207,7 @@ impl Shell {
             .iter()
             .map(|str| format!("{} ", str).to_string())
             .collect();
-        match communicator.write(format!("read-analog {}", argstr.trim()).as_bytes()) {
+        match communicator.write(format!("0 {}", argstr.trim()).as_bytes()) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
