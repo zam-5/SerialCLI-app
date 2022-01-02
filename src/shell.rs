@@ -2,7 +2,7 @@ use crate::command::Command;
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
@@ -33,6 +33,9 @@ impl Shell {
         let mut com_vec: Vec<Command> = Vec::new();
         com_vec.push(Command::new("exit", Shell::exit_shell));
         com_vec.push(Command::new("write-digital", Shell::write_digital));
+        com_vec.push(Command::new("write-analog", Shell::write_analog));
+        com_vec.push(Command::new("read-digital", Shell::read_digital));
+        com_vec.push(Command::new("read-analog", Shell::read_analog));
 
         Ok(Self {
             input_buf: String::new(),
@@ -87,7 +90,7 @@ impl Shell {
             };
             Shell::parse(input_buf, com_vec, communicator);
             input_buf.clear();
-            std::thread::sleep(Duration::from_millis(50));
+            // std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
@@ -167,8 +170,49 @@ impl Shell {
                 ()
             }
             Err(e) => {
-                eprintln!("Write command error: {}", e);
+                eprintln!("Command error: {}", e);
             }
         };
+    }
+
+    fn write_analog(argv: &Vec<String>, communicator: &mut Communicator) {
+        let argstr: String = argv
+            .iter()
+            .map(|str| format!("{} ", str).to_string())
+            .collect();
+        match communicator.write(format!("write-analog {}", argstr.trim()).as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Command error: {}", e);
+            }
+        };
+    }
+
+    fn read_digital(argv: &Vec<String>, communicator: &mut Communicator) {
+        let argstr: String = argv
+            .iter()
+            .map(|str| format!("{} ", str).to_string())
+            .collect();
+        match communicator.write(format!("read-digital {}", argstr.trim()).as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Command error: {}", e);
+            }
+        };
+        communicator.wait_for_response();
+    }
+
+    fn read_analog(argv: &Vec<String>, communicator: &mut Communicator) {
+        let argstr: String = argv
+            .iter()
+            .map(|str| format!("{} ", str).to_string())
+            .collect();
+        match communicator.write(format!("read-analog {}", argstr.trim()).as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Command error: {}", e);
+            }
+        };
+        communicator.wait_for_response();
     }
 }

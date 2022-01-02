@@ -24,6 +24,28 @@ impl Communicator {
         false
     }
 
+    fn bytes_avail(&self) -> u32 {
+        match self.port.bytes_to_read() {
+            Ok(n) => n,
+            Err(e) => panic!("Error reading port: {}", e),
+        }
+    }
+
+    pub fn wait_for_response(&self) {
+        let mut ba = self.bytes_avail();
+        loop {
+            if self.msg_available() {
+                let cba = self.bytes_avail();
+                if ba < cba {
+                    ba = cba;
+                    std::thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                break;
+            }
+        }
+    }
+
     pub fn write(&mut self, buffer: &[u8]) -> Result<usize, Box<dyn Error>> {
         match self.port.write(buffer) {
             Ok(n) => Ok(n),
