@@ -110,8 +110,16 @@ impl Shell {
             if line_vec[0].trim() == command.name {
                 // println!("Time to parse: {}", now.elapsed().as_micros());
                 command.exec(&argv, communicator);
+                return;
             }
         }
+        //If the command does not match a built in one, it will be writen by the communicator
+        match communicator.write(line.trim().as_bytes()) {
+            Ok(_) => communicator.wait_for_response(),
+            Err(e) => {
+                eprintln!("Command error: {}", e);
+            }
+        };
     }
 
     fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
