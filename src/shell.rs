@@ -22,7 +22,6 @@ impl Shell {
         }
 
         let port_name = Shell::user_select_port(ports);
-        println!("Selected port: {}", &port_name);
         let communicator = match Communicator::new(port_name, 9600) {
             Ok(c) => c,
             Err(e) => {
@@ -38,6 +37,7 @@ impl Shell {
     }
     //Should propably become a command
     fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
+        println!("Serial Ports found:");
         for (i, p) in port_list.iter().enumerate() {
             println!("{}: {}", i + 1, p.port_name);
         }
@@ -73,7 +73,18 @@ impl Shell {
         }
     }
 
+    fn welcome_msg(&self) {
+        println!(
+            "\nSerialCLI v{}\nConnected to: {}",
+            env!("CARGO_PKG_VERSION"),
+            self.communicator.get_name()
+        );
+        
+    }
+
     pub fn run_loop(&mut self) {
+        self.welcome_msg();
+
         let Self {
             input_buf,
             output_buf,
@@ -90,7 +101,7 @@ impl Shell {
             };
 
             if !output_buf.is_empty() {
-                println!("{}", output_buf);
+                println!("{}", output_buf.trim());
                 output_buf.clear();
             }
             print!(">> ");
@@ -104,7 +115,7 @@ impl Shell {
                 }
             };
             match communicator.write(input_buf.as_bytes()) {
-                Ok(_) => (),
+                Ok(_) => input_buf.clear(),
                 Err(e) => {
                     eprintln!("Error writing: {}", e);
                 }

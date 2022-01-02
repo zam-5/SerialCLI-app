@@ -1,5 +1,5 @@
-mod shell;
 mod communicator;
+mod shell;
 
 use shell::Shell;
 use std::process;
@@ -12,5 +12,6 @@ fn main() {
             process::exit(1);
         }
     };
+
     shell.run_loop();
 }
