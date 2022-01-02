@@ -17,6 +17,20 @@ impl Communicator {
         Ok(Self { port })
     }
 
+    pub fn change_port(&mut self, addr: String, baudrate: u32) {
+        let port = match serialport::new(addr, baudrate)
+            .timeout(Duration::from_millis(10))
+            .open()
+        {
+            Ok(port) => port,
+            Err(e) => {
+                eprintln!("Could not change port: {}", e);
+                return;
+            }
+        };
+        self.port = port;
+    }
+
     pub fn msg_available(&self) -> bool {
         if self.port.bytes_to_read().unwrap() != 0 {
             return true;

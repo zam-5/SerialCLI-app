@@ -36,7 +36,8 @@ impl Shell {
         com_vec.push(Command::new("write-analog", Shell::write_analog));
         com_vec.push(Command::new("read-digital", Shell::read_digital));
         com_vec.push(Command::new("read-analog", Shell::read_analog));
-
+        com_vec.push(Command::new("lsdev", Shell::lsdev));
+        com_vec.push(Command::new("chdev", Shell::chdev));
         Ok(Self {
             input_buf: String::new(),
             output_buf: String::new(),
@@ -120,6 +121,65 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
+    }
+
+    fn lsdev(_argv: &Vec<String>, _communicator: &mut Communicator) {
+        let ports = match serialport::available_ports() {
+            Ok(ports) => ports,
+            Err(e) => {
+                eprintln!("Error reading ports: {}", e);
+                return;
+            }
+        };
+        println!("Serial Ports found:");
+        for (i, p) in ports.iter().enumerate() {
+            println!("{}: {}", i + 1, p.port_name);
+        }
+    }
+
+    fn chdev(_argv: &Vec<String>, communicator: &mut Communicator) {
+        let ports = match serialport::available_ports() {
+            Ok(ports) => ports,
+            Err(e) => {
+                eprintln!("Error reading ports: {}", e);
+                return;
+            }
+        };
+        println!("Serial Ports found:");
+        for (i, p) in ports.iter().enumerate() {
+            println!("{}: {}", i + 1, p.port_name);
+        }
+        loop {
+            let mut port_str = String::new();
+            print!("Select a port: ");
+            let _ = stdout().flush();
+
+            match stdin().read_line(&mut port_str) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Error reading stdin: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            let port_index = match port_str.trim().parse::<usize>() {
+                Ok(p) if p != 0 => p - 1,
+                _ => {
+                    println!("Enter a valid port");
+                    continue;
+                }
+            };
+
+            let addr = match ports.get(port_index) {
+                Some(port) => port.port_name.clone(),
+                None => {
+                    println!("Select a port listed above");
+                    continue;
+                }
+            };
+            communicator.change_port(addr, 9600);
+            break;
+        }
     }
 
     fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
