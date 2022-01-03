@@ -61,13 +61,6 @@ impl Shell {
     pub fn run_loop(&mut self) {
         self.welcome_msg();
 
-        // let Self {
-        //     input_buf,
-        //     output_buf,
-        //     communicator,
-        //     com_vec,
-        // } = self;
-
         let comm_clone = self.communicator.clone();
 
         thread::spawn(move || loop {
@@ -81,11 +74,10 @@ impl Shell {
                         process::exit(1);
                     }
                 };
-                println!("\n{}", output);
-                print!(">> ");
+                print!("\r{}\n>> ", output);
                 let _ = stdout().flush();
             } else {
-                thread::sleep(Duration::from_millis(50));
+                thread::sleep(Duration::from_millis(30));
             }
         });
 
@@ -104,10 +96,8 @@ impl Shell {
                     process::exit(1);
                 }
             };
-            // Shell::parse(input_buf, com_vec, communicator);
             self.parse();
             self.input_buf.clear();
-            // std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
@@ -125,7 +115,6 @@ impl Shell {
         }
         for command in self.com_vec.iter() {
             if line_vec[0].trim() == command.name {
-                // println!("Time to parse: {}", now.elapsed().as_micros());
                 let mut comm = self.communicator.lock().unwrap();
                 command.exec(&argv, &mut comm);
                 return;
@@ -134,7 +123,7 @@ impl Shell {
         //If the command does not match a built in one, it will be writen by the communicator
         let mut comm = self.communicator.lock().unwrap();
         match comm.write(self.input_buf.trim().as_bytes()) {
-            Ok(_) => comm.wait_for_response(),
+            Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
             }
@@ -243,18 +232,13 @@ impl Shell {
     }
 
     fn write_digital(argv: &Vec<String>, communicator: &mut Communicator) {
-        // let now = Instant::now();
         let argstr: String = argv
             .iter()
             .map(|str| format!("{} ", str).to_string())
             .collect();
-        // println!("Time to parse args: {}", now.elapsed().as_micros());
-        // let now2 = Instant::now();
+
         match communicator.write(format!("3 {}", argstr.trim()).as_bytes()) {
-            Ok(_) => {
-                // println!("Time to write args: {}", now2.elapsed().as_micros());
-                ()
-            }
+            Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
             }
@@ -285,7 +269,6 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
-        communicator.wait_for_response();
     }
 
     fn read_analog(argv: &Vec<String>, communicator: &mut Communicator) {
@@ -299,6 +282,5 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
-        // communicator.wait_for_response();
     }
 }
