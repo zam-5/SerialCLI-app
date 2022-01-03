@@ -1,4 +1,6 @@
 use crate::communicator::Communicator;
+use std::io::{stdin, stdout, Write};
+use std::process;
 
 pub struct Command {
     pub name: String,
@@ -16,4 +18,160 @@ impl Command {
     pub fn exec(&self, argv: &Vec<String>, communicator: &mut Communicator) {
         (self.exec_func)(argv, communicator);
     }
+}
+
+//Commands Start Here
+
+pub fn lsdev(_argv: &Vec<String>, _communicator: &mut Communicator) {
+    let ports = match serialport::available_ports() {
+        Ok(ports) => ports,
+        Err(e) => {
+            eprintln!("Error reading ports: {}", e);
+            return;
+        }
+    };
+    println!("Serial Ports found:");
+    for (i, p) in ports.iter().enumerate() {
+        println!("{}: {}", i + 1, p.port_name);
+    }
+}
+
+pub fn chdev(_argv: &Vec<String>, communicator: &mut Communicator) {
+    let ports = match serialport::available_ports() {
+        Ok(ports) => ports,
+        Err(e) => {
+            eprintln!("Error reading ports: {}", e);
+            return;
+        }
+    };
+    println!("Serial Ports found:");
+    for (i, p) in ports.iter().enumerate() {
+        println!("{}: {}", i + 1, p.port_name);
+    }
+    loop {
+        let mut port_str = String::new();
+        print!("Select a port: ");
+        let _ = stdout().flush();
+
+        match stdin().read_line(&mut port_str) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error reading stdin: {}", e);
+                process::exit(1);
+            }
+        };
+
+        let port_index = match port_str.trim().parse::<usize>() {
+            Ok(p) if p != 0 => p - 1,
+            _ => {
+                println!("Enter a valid port");
+                continue;
+            }
+        };
+
+        let addr = match ports.get(port_index) {
+            Some(port) => port.port_name.clone(),
+            None => {
+                println!("Select a port listed above");
+                continue;
+            }
+        };
+        communicator.change_port(addr, 9600);
+        break;
+    }
+}
+
+pub fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
+    println!("Serial Ports found:");
+    for (i, p) in port_list.iter().enumerate() {
+        println!("{}: {}", i + 1, p.port_name);
+    }
+
+    loop {
+        let mut port_str = String::new();
+        print!("Select a port: ");
+        let _ = stdout().flush();
+
+        match stdin().read_line(&mut port_str) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error reading stdin: {}", e);
+                process::exit(1);
+            }
+        };
+
+        let port_index = match port_str.trim().parse::<usize>() {
+            Ok(p) if p != 0 => p - 1,
+            _ => {
+                println!("Enter a valid port");
+                continue;
+            }
+        };
+
+        match port_list.get(port_index) {
+            Some(port) => return port.port_name.clone(),
+            None => {
+                println!("Select a port listed above");
+                continue;
+            }
+        }
+    }
+}
+
+pub fn exit_shell(_argv: &Vec<String>, _communicator: &mut Communicator) {
+    println!("Exiting...");
+    process::exit(0);
+}
+
+pub fn write_digital(argv: &Vec<String>, communicator: &mut Communicator) {
+    let argstr: String = argv
+        .iter()
+        .map(|str| format!("{} ", str).to_string())
+        .collect();
+
+    match communicator.write(format!("3 {}", argstr.trim()).as_bytes()) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Command error: {}", e);
+        }
+    };
+}
+
+pub fn write_analog(argv: &Vec<String>, communicator: &mut Communicator) {
+    let argstr: String = argv
+        .iter()
+        .map(|str| format!("{} ", str).to_string())
+        .collect();
+    match communicator.write(format!("2 {}", argstr.trim()).as_bytes()) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Command error: {}", e);
+        }
+    };
+}
+
+pub fn read_digital(argv: &Vec<String>, communicator: &mut Communicator) {
+    let argstr: String = argv
+        .iter()
+        .map(|str| format!("{} ", str).to_string())
+        .collect();
+    match communicator.write(format!("1 {}", argstr.trim()).as_bytes()) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Command error: {}", e);
+        }
+    };
+}
+
+pub fn read_analog(argv: &Vec<String>, communicator: &mut Communicator) {
+    let argstr: String = argv
+        .iter()
+        .map(|str| format!("{} ", str).to_string())
+        .collect();
+    match communicator.write(format!("0 {}", argstr.trim()).as_bytes()) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Command error: {}", e);
+        }
+    };
 }
