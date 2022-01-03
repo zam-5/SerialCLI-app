@@ -80,7 +80,7 @@ impl Communicator {
         }
 
         match String::from_utf8(buf[..bytes_read].to_vec()) {
-            Ok(str) => Ok(str),
+            Ok(str) => Ok(str.trim().to_string()),
             Err(e) => Err(e.into()),
         }
     }

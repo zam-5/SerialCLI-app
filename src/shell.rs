@@ -1,13 +1,16 @@
 use crate::command::Command;
 use crate::communicator::Communicator;
+
 use std::io::{stdin, stdout, Write};
 use std::process;
-// use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
     output_buf: String,
-    communicator: Communicator,
+    communicator: Arc<Mutex<Communicator>>,
     com_vec: Vec<Command>,
 }
 
@@ -24,7 +27,7 @@ impl Shell {
 
         let port_name = Shell::user_select_port(ports);
         let communicator = match Communicator::new(port_name, 9600) {
-            Ok(c) => c,
+            Ok(c) => Arc::new(Mutex::new(c)),
             Err(e) => {
                 return Err(format!("Error connecting: {}", e).into());
             }
@@ -38,6 +41,7 @@ impl Shell {
         com_vec.push(Command::new("read-analog", Shell::read_analog));
         com_vec.push(Command::new("lsdev", Shell::lsdev));
         com_vec.push(Command::new("chdev", Shell::chdev));
+
         Ok(Self {
             input_buf: String::new(),
             output_buf: String::new(),
@@ -50,73 +54,87 @@ impl Shell {
         println!(
             "\nSerialCLI v{}\nConnected to: {}",
             env!("CARGO_PKG_VERSION"),
-            self.communicator.get_name()
+            self.communicator.lock().unwrap().get_name()
         );
     }
 
     pub fn run_loop(&mut self) {
         self.welcome_msg();
 
-        let Self {
-            input_buf,
-            output_buf,
-            communicator,
-            com_vec,
-        } = self;
+        // let Self {
+        //     input_buf,
+        //     output_buf,
+        //     communicator,
+        //     com_vec,
+        // } = self;
 
-        loop {
-            if communicator.msg_available() {
-                *output_buf = match communicator.get_output() {
+        let comm_clone = self.communicator.clone();
+
+        thread::spawn(move || loop {
+            if comm_clone.lock().unwrap().msg_available() {
+                let mut comm = comm_clone.lock().unwrap();
+                comm.wait_for_response();
+                let output = match comm.get_output() {
                     Ok(str) => str,
                     Err(e) => {
-                        eprintln!("Error getting output: {}", e);
-                        String::new()
+                        eprintln!("Error reading serial port: {}", e);
+                        process::exit(1);
                     }
                 };
+                println!("\n{}", output);
+                print!(">> ");
+                let _ = stdout().flush();
+            } else {
+                thread::sleep(Duration::from_millis(50));
             }
+        });
 
-            if !output_buf.is_empty() {
-                println!("{}", output_buf.trim());
-                output_buf.clear();
+        loop {
+            if !self.output_buf.is_empty() {
+                println!("{}", &self.output_buf.trim());
+                self.output_buf.clear();
             }
             print!(">> ");
             let _ = stdout().flush();
 
-            match stdin().read_line(input_buf) {
+            match stdin().read_line(&mut self.input_buf) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error reading stdin: {}", e);
                     process::exit(1);
                 }
             };
-            Shell::parse(input_buf, com_vec, communicator);
-            input_buf.clear();
+            // Shell::parse(input_buf, com_vec, communicator);
+            self.parse();
+            self.input_buf.clear();
             // std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
 
 //Commands
+//Most of these can be moved out of the shell struct as they don't ever use &self
 impl Shell {
-    fn parse(line: &String, com_vec: &Vec<Command>, communicator: &mut Communicator) {
-        // let now = Instant::now();
-        let line_vec: Vec<&str> = line.split(" ").collect();
+    fn parse(&mut self) {
+        let line_vec: Vec<&str> = self.input_buf.split(" ").collect();
         let mut argv: Vec<String> = Vec::new();
         if line_vec.len() > 1 {
             line_vec[1..]
                 .iter()
                 .for_each(|str| argv.push(String::from(str.clone())))
         }
-        for command in com_vec.iter() {
+        for command in self.com_vec.iter() {
             if line_vec[0].trim() == command.name {
                 // println!("Time to parse: {}", now.elapsed().as_micros());
-                command.exec(&argv, communicator);
+                let mut comm = self.communicator.lock().unwrap();
+                command.exec(&argv, &mut comm);
                 return;
             }
         }
         //If the command does not match a built in one, it will be writen by the communicator
-        match communicator.write(line.trim().as_bytes()) {
-            Ok(_) => communicator.wait_for_response(),
+        let mut comm = self.communicator.lock().unwrap();
+        match comm.write(self.input_buf.trim().as_bytes()) {
+            Ok(_) => comm.wait_for_response(),
             Err(e) => {
                 eprintln!("Command error: {}", e);
             }
@@ -281,6 +299,6 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
-        communicator.wait_for_response();
+        // communicator.wait_for_response();
     }
 }
