@@ -1,6 +1,6 @@
 [package]
 name = "serial_cli_app"
-author = "Max Royer"
+authors = ["Max Royer"]
 version = "0.1.0"
 edition = "2021"
 
