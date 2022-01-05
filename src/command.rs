@@ -135,10 +135,3 @@ pub fn read_analog(argv: &Vec<String>, communicator: &mut Communicator) {
         }
     };
 }
-
-pub fn monitor_analog(argv: &Vec<String>, communicator: &mut Communicator) {
-    for _ in 0..5 {
-        read_analog(argv, communicator);
-        std::thread::sleep(Duration::from_millis(1000));
-    }
-}

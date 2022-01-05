@@ -40,7 +40,6 @@ impl Shell {
         com_vec.push(Command::new("read-digital", command::read_digital));
         com_vec.push(Command::new("read-analog", command::read_analog));
         com_vec.push(Command::new("lsdev", command::lsdev));
-        com_vec.push(Command::new("mon-analog", command::monitor_analog));
 
         Ok(Self {
             input_buf: String::new(),
