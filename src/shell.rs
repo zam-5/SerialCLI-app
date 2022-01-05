@@ -40,39 +40,6 @@ impl Shell {
             com_vec
         })
     }
-    pub fn init() -> Result<Self, Box<dyn std::error::Error>> {
-        let ports = match serialport::available_ports() {
-            Ok(ports) => ports,
-            Err(e) => return Err(format!("Error reading ports: {}", e).into()),
-        };
-
-        if ports.is_empty() {
-            return Err("No serial devices found".into());
-        }
-
-        let port_name = command::user_select_port(ports);
-        let communicator = match Communicator::new(port_name, 9600) {
-            Ok(c) => Arc::new(Mutex::new(c)),
-            Err(e) => {
-                return Err(format!("Error connecting: {}", e).into());
-            }
-        };
-
-        let mut com_vec: Vec<Command> = Vec::new();
-        com_vec.push(Command::new("exit", command::exit_shell));
-        com_vec.push(Command::new("write-digital", command::write_digital));
-        com_vec.push(Command::new("write-analog", command::write_analog));
-        com_vec.push(Command::new("read-digital", command::read_digital));
-        com_vec.push(Command::new("read-analog", command::read_analog));
-        com_vec.push(Command::new("lsdev", command::lsdev));
-
-        Ok(Self {
-            input_buf: String::new(),
-            output_buf: String::new(),
-            communicator,
-            com_vec,
-        })
-    }
 
     fn welcome_msg(&self) {
         println!(
