@@ -33,11 +33,11 @@ impl Shell {
             }
         };
 
-        Ok(Self{
+        Ok(Self {
             input_buf: String::new(),
             output_buf: String::new(),
             communicator,
-            com_vec
+            com_vec,
         })
     }
 
@@ -47,6 +47,38 @@ impl Shell {
             env!("CARGO_PKG_VERSION"),
             self.communicator.lock().unwrap().get_name()
         );
+    }
+
+    fn parse_external(&mut self, input_str: String) {
+        let line_vec: Vec<&str> = input_str.split(" ").collect();
+        let mut argv: Vec<String> = Vec::new();
+        if line_vec.len() > 1 {
+            line_vec[1..]
+                .iter()
+                .for_each(|str| argv.push(String::from(str.clone())))
+        }
+
+        let comm_clone = self.communicator.clone();
+
+        for command in self.com_vec.iter() {
+            if line_vec[0].trim() == command.name {
+                // let mut comm = comm_clone.lock().unwrap();
+                let command_copy = (*command).clone();
+                thread::spawn(move || {
+                    command_copy.exec(&argv, comm_clone);
+                });
+
+                return;
+            }
+        }
+        //If the command does not match a built in one, it will be writen by the communicator
+        let mut comm = self.communicator.lock().unwrap();
+        match comm.write(input_str.trim().as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Command error: {}", e);
+            }
+        };
     }
 
     fn parse(&mut self) {
