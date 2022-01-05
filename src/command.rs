@@ -1,7 +1,10 @@
 use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
+#[derive(Clone)]
 pub struct Command {
     pub name: String,
     exec_func: fn(&Vec<String>, &mut Communicator),
@@ -15,8 +18,10 @@ impl Command {
         }
     }
 
-    pub fn exec(&self, argv: &Vec<String>, communicator: &mut Communicator) {
-        (self.exec_func)(argv, communicator);
+    pub fn exec(&self, argv: &Vec<String>, communicator: Arc<Mutex<Communicator>>) {
+        let mut comm_lock = communicator.lock().unwrap();
+
+        (self.exec_func)(argv, &mut comm_lock);
     }
 }
 
@@ -33,51 +38,6 @@ pub fn lsdev(_argv: &Vec<String>, _communicator: &mut Communicator) {
     println!("Serial Ports found:");
     for (i, p) in ports.iter().enumerate() {
         println!("{}: {}", i + 1, p.port_name);
-    }
-}
-
-pub fn chdev(_argv: &Vec<String>, communicator: &mut Communicator) {
-    let ports = match serialport::available_ports() {
-        Ok(ports) => ports,
-        Err(e) => {
-            eprintln!("Error reading ports: {}", e);
-            return;
-        }
-    };
-    println!("Serial Ports found:");
-    for (i, p) in ports.iter().enumerate() {
-        println!("{}: {}", i + 1, p.port_name);
-    }
-    loop {
-        let mut port_str = String::new();
-        print!("Select a port: ");
-        let _ = stdout().flush();
-
-        match stdin().read_line(&mut port_str) {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Error reading stdin: {}", e);
-                process::exit(1);
-            }
-        };
-
-        let port_index = match port_str.trim().parse::<usize>() {
-            Ok(p) if p != 0 => p - 1,
-            _ => {
-                println!("Enter a valid port");
-                continue;
-            }
-        };
-
-        let addr = match ports.get(port_index) {
-            Some(port) => port.port_name.clone(),
-            None => {
-                println!("Select a port listed above");
-                continue;
-            }
-        };
-        communicator.change_port(addr, 9600);
-        break;
     }
 }
 
@@ -171,7 +131,14 @@ pub fn read_analog(argv: &Vec<String>, communicator: &mut Communicator) {
     match communicator.write(format!("0 {}", argstr.trim()).as_bytes()) {
         Ok(_) => (),
         Err(e) => {
-            eprintln!("Command error: {}", e);
+            eprintln!("Command write error: {}", e);
         }
     };
+}
+
+pub fn monitor_analog(argv: &Vec<String>, communicator: &mut Communicator) {
+    for _ in 0..5 {
+        read_analog(argv, communicator);
+        std::thread::sleep(Duration::from_millis(1000));
+    }
 }

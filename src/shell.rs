@@ -40,7 +40,7 @@ impl Shell {
         com_vec.push(Command::new("read-digital", command::read_digital));
         com_vec.push(Command::new("read-analog", command::read_analog));
         com_vec.push(Command::new("lsdev", command::lsdev));
-        com_vec.push(Command::new("chdev", command::chdev));
+        com_vec.push(Command::new("mon-analog", command::monitor_analog));
 
         Ok(Self {
             input_buf: String::new(),
@@ -66,10 +66,17 @@ impl Shell {
                 .iter()
                 .for_each(|str| argv.push(String::from(str.clone())))
         }
+
+        let comm_clone = self.communicator.clone();
+
         for command in self.com_vec.iter() {
             if line_vec[0].trim() == command.name {
-                let mut comm = self.communicator.lock().unwrap();
-                command.exec(&argv, &mut comm);
+                // let mut comm = comm_clone.lock().unwrap();
+                let command_copy = (*command).clone();
+                thread::spawn(move || {
+                    command_copy.exec(&argv, comm_clone);
+                });
+
                 return;
             }
         }

@@ -17,7 +17,7 @@ impl Communicator {
         Ok(Self { port })
     }
 
-    pub fn change_port(&mut self, addr: String, baudrate: u32) {
+    pub fn _change_port(&mut self, addr: String, baudrate: u32) {
         let port = match serialport::new(addr, baudrate)
             .timeout(Duration::from_millis(10))
             .open()
