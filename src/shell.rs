@@ -15,6 +15,31 @@ pub struct Shell {
 }
 
 impl Shell {
+    pub fn new(com_vec: Vec<Command>) -> Result<Self, Box<dyn std::error::Error>> {
+        let ports = match serialport::available_ports() {
+            Ok(ports) => ports,
+            Err(e) => return Err(format!("Error reading ports: {}", e).into()),
+        };
+
+        if ports.is_empty() {
+            return Err("No serial devices found".into());
+        }
+
+        let port_name = command::user_select_port(ports);
+        let communicator = match Communicator::new(port_name, 9600) {
+            Ok(c) => Arc::new(Mutex::new(c)),
+            Err(e) => {
+                return Err(format!("Error connecting: {}", e).into());
+            }
+        };
+
+        Ok(Self{
+            input_buf: String::new(),
+            output_buf: String::new(),
+            communicator,
+            com_vec
+        })
+    }
     pub fn init() -> Result<Self, Box<dyn std::error::Error>> {
         let ports = match serialport::available_ports() {
             Ok(ports) => ports,
@@ -105,6 +130,7 @@ impl Shell {
                         process::exit(1);
                     }
                 };
+                //  Data recieved from the serial connection is printed here
                 print!("\r{}  \n>> ", output);
                 let _ = stdout().flush();
             } else {

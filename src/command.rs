@@ -2,7 +2,7 @@ use crate::communicator::Communicator;
 use std::io::{stdin, stdout, Write};
 use std::process;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+// use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Command {
