@@ -8,9 +8,8 @@ use std::thread;
 use std::time::Duration;
 
 pub struct Shell {
-    input_buf: String,
-    pub output_vec: Arc<Mutex<Vec<String>>>,
-    communicator: Arc<Mutex<Communicator>>,
+    _input_buf: String,
+    pub communicator: Arc<Mutex<Communicator>>,
     com_vec: Vec<Command>,
 }
 
@@ -34,8 +33,7 @@ impl Shell {
         };
 
         Ok(Self {
-            input_buf: String::new(),
-            output_vec: Arc::new(Mutex::new(Vec::new())),
+            _input_buf: String::new(),
             communicator,
             com_vec,
         })
@@ -45,7 +43,7 @@ impl Shell {
         println!(
             "\nSerialCLI v{}\nConnected to: {}",
             env!("CARGO_PKG_VERSION"),
-            self.communicator.lock().unwrap().get_name()
+            self.communicator.lock().unwrap()._get_name()
         );
     }
 
@@ -81,9 +79,8 @@ impl Shell {
         };
     }
 
-    pub fn spawn_listener(&self) {
+    pub fn spawn_listener(&self, output_clone: Arc<Mutex<Vec<String>>>) {
         let comm_clone = self.communicator.clone();
-        let output_clone = self.output_vec.clone();
 
         thread::spawn(move || loop {
             if comm_clone.lock().unwrap().msg_available() {
@@ -106,8 +103,8 @@ impl Shell {
         });
     }
 
-    fn parse(&mut self) {
-        let line_vec: Vec<&str> = self.input_buf.split(" ").collect();
+    fn _parse(&mut self) {
+        let line_vec: Vec<&str> = self._input_buf.split(" ").collect();
         let mut argv: Vec<String> = Vec::new();
         if line_vec.len() > 1 {
             line_vec[1..]
@@ -130,7 +127,7 @@ impl Shell {
         }
         //If the command does not match a built in one, it will be writen by the communicator
         let mut comm = self.communicator.lock().unwrap();
-        match comm.write(self.input_buf.trim().as_bytes()) {
+        match comm.write(self._input_buf.trim().as_bytes()) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Command error: {}", e);
@@ -139,16 +136,17 @@ impl Shell {
     }
 
     pub fn _run_loop(&mut self) {
+        // This funciton is broken
         self._welcome_msg();
 
         let comm_clone = self.communicator.clone();
-        let output_clone = self.output_vec.clone();
+        // let output_clone = self.output_vec.clone();
 
         thread::spawn(move || loop {
             if comm_clone.lock().unwrap().msg_available() {
                 let mut comm = comm_clone.lock().unwrap();
                 comm.wait_for_response();
-                let output = match comm.get_output() {
+                let _output = match comm.get_output() {
                     Ok(str) => str,
                     Err(e) => {
                         eprintln!("Error reading serial port: {}", e);
@@ -158,7 +156,7 @@ impl Shell {
                 //  Data recieved from the serial connection is printed here
                 // print!("\r{}  \n>> ", output);
                 // let _ = stdout().flush();
-                output_clone.lock().unwrap().push(output);
+                // output_clone.lock().unwrap().push(output);
             } else {
                 thread::sleep(Duration::from_millis(30));
             }
@@ -168,15 +166,15 @@ impl Shell {
             print!(">> ");
             let _ = stdout().flush();
 
-            match stdin().read_line(&mut self.input_buf) {
+            match stdin().read_line(&mut self._input_buf) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error reading stdin: {}", e);
                     process::exit(1);
                 }
             };
-            self.parse();
-            self.input_buf.clear();
+            self._parse();
+            self._input_buf.clear();
         }
     }
 }
