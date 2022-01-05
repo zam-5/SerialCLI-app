@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub struct Shell {
     input_buf: String,
-    output_buf: String,
+    pub output_vec: Arc<Mutex<Vec<String>>>,
     communicator: Arc<Mutex<Communicator>>,
     com_vec: Vec<Command>,
 }
@@ -35,13 +35,13 @@ impl Shell {
 
         Ok(Self {
             input_buf: String::new(),
-            output_buf: String::new(),
+            output_vec: Arc::new(Mutex::new(Vec::new())),
             communicator,
             com_vec,
         })
     }
 
-    fn welcome_msg(&self) {
+    fn _welcome_msg(&self) {
         println!(
             "\nSerialCLI v{}\nConnected to: {}",
             env!("CARGO_PKG_VERSION"),
@@ -49,7 +49,7 @@ impl Shell {
         );
     }
 
-    fn parse_external(&mut self, input_str: String) {
+    pub fn parse_external(&mut self, input_str: String) {
         let line_vec: Vec<&str> = input_str.split(" ").collect();
         let mut argv: Vec<String> = Vec::new();
         if line_vec.len() > 1 {
@@ -79,6 +79,31 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
+    }
+
+    pub fn spawn_listener(&self) {
+        let comm_clone = self.communicator.clone();
+        let output_clone = self.output_vec.clone();
+
+        thread::spawn(move || loop {
+            if comm_clone.lock().unwrap().msg_available() {
+                let mut comm = comm_clone.lock().unwrap();
+                comm.wait_for_response();
+                let output = match comm.get_output() {
+                    Ok(str) => str,
+                    Err(e) => {
+                        eprintln!("Error reading serial port: {}", e);
+                        process::exit(1);
+                    }
+                };
+                //  Data recieved from the serial connection is printed here
+                // print!("\r{}  \n>> ", output);
+                // let _ = stdout().flush();
+                output_clone.lock().unwrap().push(output);
+            } else {
+                thread::sleep(Duration::from_millis(30));
+            }
+        });
     }
 
     fn parse(&mut self) {
@@ -113,10 +138,11 @@ impl Shell {
         };
     }
 
-    pub fn run_loop(&mut self) {
-        self.welcome_msg();
+    pub fn _run_loop(&mut self) {
+        self._welcome_msg();
 
         let comm_clone = self.communicator.clone();
+        let output_clone = self.output_vec.clone();
 
         thread::spawn(move || loop {
             if comm_clone.lock().unwrap().msg_available() {
@@ -130,18 +156,15 @@ impl Shell {
                     }
                 };
                 //  Data recieved from the serial connection is printed here
-                print!("\r{}  \n>> ", output);
-                let _ = stdout().flush();
+                // print!("\r{}  \n>> ", output);
+                // let _ = stdout().flush();
+                output_clone.lock().unwrap().push(output);
             } else {
                 thread::sleep(Duration::from_millis(30));
             }
         });
 
         loop {
-            if !self.output_buf.is_empty() {
-                println!("{}", &self.output_buf.trim());
-                self.output_buf.clear();
-            }
             print!(">> ");
             let _ = stdout().flush();
 

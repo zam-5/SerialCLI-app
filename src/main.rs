@@ -19,7 +19,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
 use unicode_width::UnicodeWidthStr;
@@ -29,25 +29,30 @@ struct App {
     /// Current value of the input box
     input: String,
     /// History of recorded messages
-    messages: Vec<String>,
     /// History of inputs
     input_history: Vec<String>,
     // This struct will also hold the shell, which it will get commands from
+    shell: Shell,
 }
 
-impl Default for App {
-    fn default() -> App {
+impl App {
+    fn new(shell: Shell) -> App {
         App {
             input: String::new(),
-            messages: Vec::new(),
             input_history: Vec::new(),
+            shell,
         }
+    }
+
+    fn add_to_history(&mut self, h: String) {
+        self.input_history.push(h);
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // COMMANDS (EXIT) NEED CHANGED TO WORK WITH TUI
     let com_vec: Vec<Command> = vec![
-        Command::new("exit", command::exit_shell),
+        // Command::new("exit", command::exit_shell),
         Command::new("write-digital", command::write_digital),
         Command::new("write-analog", command::write_analog),
         Command::new("read-digital", command::read_digital),
@@ -55,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Command::new("lsdev", command::lsdev),
     ];
 
-    let mut shell = match Shell::new(com_vec) {
+    let shell = match Shell::new(com_vec) {
         Ok(shell) => shell,
         Err(e) => {
             eprintln!("Shell could not be started: {}", e);
@@ -70,7 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let app = App::default();
+    let app = App::new(shell);
     let res = run_app(&mut terminal, app);
 
     // restore terminal
@@ -86,11 +91,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{:?}", err)
     }
 
-    shell.run_loop();
+    // shell.run_loop();
     Ok(())
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+    app.shell.spawn_listener();
     loop {
         terminal.draw(|f| ui(f, &app))?;
 
@@ -99,7 +105,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
             match key.code {
                 KeyCode::Enter => {
                     // Here the input will be sent to the shell, then added to input_history
-                    app.messages.push(app.input.drain(..).collect());
+                    app.add_to_history(app.input.clone());
+                    app.shell.parse_external(app.input.drain(..).collect());
                 }
                 KeyCode::Char(c) => {
                     app.input.push(c);
@@ -133,15 +140,18 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         chunks[1].y + 1,
     );
 
-    let messages: Vec<ListItem> = app
-        .messages
+    // This (probably) should not be done this way, change after testing initial linkup
+    // Maybe look for differnces and only change this if need?
+    let text: Vec<Spans> = app
+        .shell
+        .output_vec
+        .lock()
+        .unwrap()
         .iter()
-        .map(|m| {
-            let content = vec![Spans::from(Span::raw(format!("{}", m)))];
-            ListItem::new(content)
-        })
+        .map(|line| Spans::from(Span::raw(line.clone())))
         .collect();
-    let messages =
-        List::new(messages).block(Block::default().borders(Borders::ALL).title("Messages"));
-    f.render_widget(messages, chunks[0]);
+
+    let paragraph =
+        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Messages"));
+    f.render_widget(paragraph, chunks[0]);
 }

@@ -78,7 +78,7 @@ pub fn user_select_port(port_list: Vec<serialport::SerialPortInfo>) -> String {
     }
 }
 
-pub fn exit_shell(_argv: &Vec<String>, _communicator: &mut Communicator) {
+pub fn _exit_shell(_argv: &Vec<String>, _communicator: &mut Communicator) {
     println!("Exiting...");
     process::exit(0);
 }
