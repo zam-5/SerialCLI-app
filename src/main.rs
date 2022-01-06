@@ -8,6 +8,7 @@ use shell::Shell;
 use std::error::Error;
 use std::io;
 use std::process;
+use std::time::Duration;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -16,8 +17,6 @@ use crossterm::{
 };
 
 use tui::{backend::CrosstermBackend, Terminal};
-
-/// App holds the state of the application
 
 fn main() -> Result<(), Box<dyn Error>> {
     // COMMANDS (EXIT) NEED CHANGED TO WORK WITH TUI
@@ -45,8 +44,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
+    let tick_rate = Duration::from_millis(100);
     let app = app::App::new(shell);
-    let res = app::run_app(&mut terminal, app);
+    let res = app::run_app(&mut terminal, app, tick_rate);
 
     // restore terminal
     disable_raw_mode()?;

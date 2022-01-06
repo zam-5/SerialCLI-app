@@ -2,6 +2,7 @@ use crate::shell::Shell;
 
 use std::io;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode};
 
@@ -35,34 +36,47 @@ impl App {
         }
     }
 
+    fn on_tick(&self) {}
+
     fn add_to_history(&mut self, h: String) {
         self.input_history.push(h);
     }
 }
 
-pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+pub fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    mut app: App,
+    tick_rate: Duration,
+) -> io::Result<()> {
     app.shell.spawn_listener(app.output_vec.clone());
-
+    let mut last_tick = Instant::now();
     loop {
         terminal.draw(|f| ui(f, &app))?;
 
         // Added handling for arrow keys to scroll through input history
-        if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Enter => {
-                    // Here the input will be sent to the shell, then added to input_history
-                    app.add_to_history(app.input.clone());
-                    app.shell.parse_external(app.input.drain(..).collect());
+        if crossterm::event::poll(tick_rate)? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Enter => {
+                        // Here the input will be sent to the shell, then added to input_history
+                        app.add_to_history(app.input.clone());
+                        app.shell.parse_external(app.input.drain(..).collect());
+                    }
+                    KeyCode::Char(c) => {
+                        app.input.push(c);
+                    }
+                    KeyCode::Backspace => {
+                        app.input.pop();
+                    }
+                    KeyCode::Esc => return Ok(()),
+                    _ => {}
                 }
-                KeyCode::Char(c) => {
-                    app.input.push(c);
-                }
-                KeyCode::Backspace => {
-                    app.input.pop();
-                }
-                KeyCode::Esc => return Ok(()),
-                _ => {}
             }
+        }
+
+        if last_tick.elapsed() >= tick_rate {
+            app.on_tick();
+            last_tick = Instant::now();
         }
     }
 }
