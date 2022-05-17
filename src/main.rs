@@ -61,6 +61,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{:?}", err)
     }
 
-    // shell.run_loop();
     Ok(())
 }

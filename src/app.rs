@@ -6,37 +6,49 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode};
 
+use tui::widgets::{List, ListItem};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
-    text::{Span, Spans},
     widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
 use unicode_width::UnicodeWidthStr;
 
-pub struct App {
+pub struct App<'a> {
     /// Current value of the input box
     input: String,
     output_vec: Arc<Mutex<Vec<String>>>,
+    pub output_list: Vec<ListItem<'a>>,
     /// History of inputs
     input_history: Vec<String>,
     // This struct will also hold the shell, which it will get commands from
     shell: Shell,
 }
 
-impl App {
-    pub fn new(shell: Shell) -> App {
+impl<'a> App<'a> {
+    pub fn new(shell: Shell) -> App<'a> {
         App {
             input: String::new(),
             output_vec: Arc::new(Mutex::new(Vec::new())),
+            output_list: Vec::new(),
             input_history: Vec::new(),
             shell,
         }
     }
 
-    fn on_tick(&self) {}
+    fn on_tick(&mut self) {
+        let ov = self.output_vec.lock().unwrap();
+        if ov.len() > self.output_list.len() {
+            self.output_list
+                .push(ListItem::new(ov.last().unwrap().clone()))
+        }
+    }
+
+    fn add_output(&mut self, output: String) {
+        self.output_vec.lock().unwrap().push(output);
+    }
 
     fn add_to_history(&mut self, h: String) {
         self.input_history.push(h);
@@ -60,6 +72,7 @@ pub fn run_app<B: Backend>(
                     KeyCode::Enter => {
                         // Here the input will be sent to the shell, then added to input_history
                         app.add_to_history(app.input.clone());
+                        app.add_output(app.input.clone());
                         app.shell.parse_external(app.input.drain(..).collect());
                     }
                     KeyCode::Char(c) => {
@@ -102,15 +115,25 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
 
     // This (probably) should not be done this way, change after testing initial linkup
     // Maybe look for differnces and only change this if need?
-    let text: Vec<Spans> = app
-        .output_vec
-        .lock()
-        .unwrap()
-        .iter()
-        .map(|line| Spans::from(Span::raw(line.clone())))
-        .collect();
+    // Or hold this as a list in the app state, then just add new items to the list
+    // let text: Vec<Spans> = app
+    //     .output_vec
+    //     .lock()
+    //     .unwrap()
+    //     .iter()
+    //     .map(|line| Spans::from(Span::raw(line.clone())))
+    //     .collect();
 
-    let paragraph =
-        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Messages"));
-    f.render_widget(paragraph, chunks[0]);
+    // let paragraph =
+    //     Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Messages"));
+    // let items: Vec<ListItem> = app
+    //     .output_vec
+    //     .lock()
+    //     .unwrap()
+    //     .iter()
+    //     .map(|line| ListItem::new(line.clone()))
+    //     .collect();
+    let list = List::new(app.output_list.clone())
+        .block(Block::default().borders(Borders::ALL).title("Messages"));
+    f.render_widget(list, chunks[0]);
 }

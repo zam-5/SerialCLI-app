@@ -1,7 +1,6 @@
 use crate::command::{self, Command};
 use crate::communicator::Communicator;
 
-use std::io::{stdin, stdout, Write};
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -133,48 +132,5 @@ impl Shell {
                 eprintln!("Command error: {}", e);
             }
         };
-    }
-
-    pub fn _run_loop(&mut self) {
-        // This funciton is broken
-        self._welcome_msg();
-
-        let comm_clone = self.communicator.clone();
-        // let output_clone = self.output_vec.clone();
-
-        thread::spawn(move || loop {
-            if comm_clone.lock().unwrap().msg_available() {
-                let mut comm = comm_clone.lock().unwrap();
-                comm.wait_for_response();
-                let _output = match comm.get_output() {
-                    Ok(str) => str,
-                    Err(e) => {
-                        eprintln!("Error reading serial port: {}", e);
-                        process::exit(1);
-                    }
-                };
-                //  Data recieved from the serial connection is printed here
-                // print!("\r{}  \n>> ", output);
-                // let _ = stdout().flush();
-                // output_clone.lock().unwrap().push(output);
-            } else {
-                thread::sleep(Duration::from_millis(30));
-            }
-        });
-
-        loop {
-            print!(">> ");
-            let _ = stdout().flush();
-
-            match stdin().read_line(&mut self._input_buf) {
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("Error reading stdin: {}", e);
-                    process::exit(1);
-                }
-            };
-            self._parse();
-            self._input_buf.clear();
-        }
     }
 }
